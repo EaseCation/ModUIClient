@@ -178,6 +178,23 @@ public class UIManager {
         ModUIClient.LOGGER.debug("[UIManager] Sent HUD button click: path={}, name={}", buttonPath, buttonName);
     }
 
+    // --- Key Press ---
+
+    /**
+     * Send a keyboard key press/release event to the server.
+     * Maps to Bedrock's OnKeyPressInGame → NotifyToServer("KeyPressInGame", {key, isDown}).
+     *
+     * @param key   Windows VK code as string (e.g. "87" for W)
+     * @param isDown "1" for press, "0" for release
+     */
+    public void sendKeyPress(String key, String isDown) {
+        if (!connected) return;
+        byte[] data = PyRpcCodec.buildKeyPressC2S(key, isDown);
+        if (data != null) {
+            ModUIPayload.sendC2S(data);
+        }
+    }
+
     // --- Screen Info ---
 
     /**

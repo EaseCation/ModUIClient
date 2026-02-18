@@ -231,6 +231,38 @@ public class PyRpcCodec {
     }
 
     /**
+     * Build C2S MsgPack bytes for KeyPressInGame event.
+     * Sends keyboard key press/release to server (mirrors Bedrock OnKeyPressInGame).
+     *
+     * @param key   Windows VK code as string (e.g. "87" for W)
+     * @param isDown "1" for press, "0" for release
+     */
+    public static byte[] buildKeyPressC2S(String key, String isDown) {
+        try (MessageBufferPacker packer = MessagePack.newDefaultBufferPacker()) {
+            packer.packArrayHeader(3);
+            packStr(packer, "ModEventC2S");
+
+            packer.packArrayHeader(4);
+            packStr(packer, MOD_NAME);
+            packStr(packer, CLIENT_SYSTEM);
+            packStr(packer, "KeyPressInGame");
+
+            // eventData: {key: "87", isDown: "1"}  — both values are strings
+            packer.packMapHeader(2);
+            packStr(packer, "key");
+            packStr(packer, key);
+            packStr(packer, "isDown");
+            packStr(packer, isDown);
+
+            packer.packNil();
+            return packer.toByteArray();
+        } catch (IOException e) {
+            ModUIClient.LOGGER.error("[PyRpc] Failed to build C2S KeyPressInGame", e);
+            return null;
+        }
+    }
+
+    /**
      * Pack a string as MsgPack StringValue.
      * Server uses Value.toJson() → GSON; BinaryValue.toJson() base64-encodes which breaks
      * string matching, so we must use StringValue (packString) instead.
