@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "moduiclient",
+	"version": "${version}",
+	"name": "ModUIClient",
+	"description": "Client-side renderer for Nukkit ModUI framework via ViaBedrock/ViaProxy.",
+	"authors": ["EaseCation"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"net.easecation.moduiclient.ModUIClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "moduiclient.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.21.11-",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
