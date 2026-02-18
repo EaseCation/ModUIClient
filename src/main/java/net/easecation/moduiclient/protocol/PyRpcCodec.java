@@ -234,10 +234,11 @@ public class PyRpcCodec {
      * Build C2S MsgPack bytes for KeyPressInGame event.
      * Sends keyboard key press/release to server (mirrors Bedrock OnKeyPressInGame).
      *
-     * @param key   Windows VK code as string (e.g. "87" for W)
-     * @param isDown "1" for press, "0" for release
+     * @param screenName current screen name (e.g. "hud_screen")
+     * @param key        Windows VK code as string (e.g. "87" for W)
+     * @param isDown     "1" for press, "0" for release
      */
-    public static byte[] buildKeyPressC2S(String key, String isDown) {
+    public static byte[] buildKeyPressC2S(String screenName, String key, String isDown) {
         try (MessageBufferPacker packer = MessagePack.newDefaultBufferPacker()) {
             packer.packArrayHeader(3);
             packStr(packer, "ModEventC2S");
@@ -247,8 +248,10 @@ public class PyRpcCodec {
             packStr(packer, CLIENT_SYSTEM);
             packStr(packer, "KeyPressInGame");
 
-            // eventData: {key: "87", isDown: "1"}  — both values are strings
-            packer.packMapHeader(2);
+            // eventData: {screenName: "hud_screen", key: "87", isDown: "1"}
+            packer.packMapHeader(3);
+            packStr(packer, "screenName");
+            packStr(packer, screenName);
             packStr(packer, "key");
             packStr(packer, key);
             packStr(packer, "isDown");

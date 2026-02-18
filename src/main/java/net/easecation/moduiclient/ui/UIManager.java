@@ -187,9 +187,10 @@ public class UIManager {
      * @param key   Windows VK code as string (e.g. "87" for W)
      * @param isDown "1" for press, "0" for release
      */
-    public void sendKeyPress(String key, String isDown) {
+    public void sendKeyPress(String screenName, String key, String isDown) {
         if (!connected) return;
-        byte[] data = PyRpcCodec.buildKeyPressC2S(key, isDown);
+        ModUIClient.LOGGER.info("[UIManager] sendKeyPress: screen={}, vk={}, isDown={}", screenName, key, isDown);
+        byte[] data = PyRpcCodec.buildKeyPressC2S(screenName, key, isDown);
         if (data != null) {
             ModUIPayload.sendC2S(data);
         }
