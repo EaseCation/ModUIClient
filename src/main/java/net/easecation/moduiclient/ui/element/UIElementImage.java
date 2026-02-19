@@ -3,14 +3,22 @@ package net.easecation.moduiclient.ui.element;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.easecation.moduiclient.ui.NineSliceInfo;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
+
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Image element supporting solid color fill, texture rendering, and nine-slice.
  */
 public class UIElementImage extends UIElement {
+
+    // Cache: texture Identifier → [width, height] from PNG header
+    private static final Map<Identifier, int[]> TEXTURE_DIMS = new HashMap<>();
 
     private String texturePath;
     private Identifier textureId;
@@ -172,20 +180,28 @@ public class UIElementImage extends UIElement {
                 float frameU = frameCol * seqFrameW;
                 float frameV = frameRow * seqFrameH;
 
-                // Draw current frame: map seqFrameW×seqFrameH source region to w×h on screen
-                float scaleX = (float) w / seqFrameW;
-                float scaleY = (float) h / seqFrameH;
-                int scaledTexW = (int) (seqSheetW * scaleX);
-                int scaledTexH = (int) (seqSheetH * scaleY);
-                float scaledU = frameU * scaleX;
-                float scaledV = frameV * scaleY;
-                context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId, x, y, scaledU, scaledV,
-                        w, h, scaledTexW, scaledTexH, color);
+                // Draw current frame with separate screen size and UV region size
+                context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                        x, y, frameU, frameV, w, h,
+                        (int) seqFrameW, (int) seqFrameH,
+                        (int) seqSheetW, (int) seqSheetH, color);
+            } else if (uvWidth > 0 && uvHeight > 0) {
+                // Custom UV sub-region: separate screen size from UV region
+                int[] dims = queryTextureDimensions(textureId);
+                if (dims != null) {
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                            x, y, uvX, uvY, w, h,
+                            (int) uvWidth, (int) uvHeight,
+                            dims[0], dims[1], color);
+                } else {
+                    // Fallback: render full texture
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                            x, y, 0, 0, w, h, w, h, color);
+                }
             } else {
-                int textureW = uvWidth > 0 ? (int) uvWidth : w;
-                int textureH = uvHeight > 0 ? (int) uvHeight : h;
-                context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId, x, y, uvX, uvY,
-                        w, h, textureW, textureH, color);
+                // Full texture
+                context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                        x, y, 0, 0, w, h, w, h, color);
             }
         } else if (hasColor) {
             // Solid color fill
@@ -316,4 +332,43 @@ public class UIElementImage extends UIElement {
     public void setRotatePivot(float x, float y) { this.rotatePivotX = x; this.rotatePivotY = y; }
     public void setUV(float x, float y) { this.uvX = x; this.uvY = y; }
     public void setUVSize(float w, float h) { this.uvWidth = w; this.uvHeight = h; }
+
+    // --- Texture dimension cache ---
+
+    /**
+     * Query actual texture pixel dimensions by reading the PNG IHDR header (24 bytes).
+     * Results are cached per Identifier for zero-cost subsequent lookups.
+     */
+    private static int[] queryTextureDimensions(Identifier id) {
+        if (id == null) return null;
+        int[] cached = TEXTURE_DIMS.get(id);
+        if (cached != null) return cached;
+
+        try {
+            var resource = MinecraftClient.getInstance().getResourceManager().getResource(id);
+            if (resource.isPresent()) {
+                try (InputStream is = resource.get().getInputStream()) {
+                    byte[] header = new byte[24];
+                    if (is.read(header) >= 24) {
+                        // PNG IHDR: width at offset 16, height at offset 20 (big-endian)
+                        int w = ((header[16] & 0xFF) << 24) | ((header[17] & 0xFF) << 16)
+                                | ((header[18] & 0xFF) << 8) | (header[19] & 0xFF);
+                        int h = ((header[20] & 0xFF) << 24) | ((header[21] & 0xFF) << 16)
+                                | ((header[22] & 0xFF) << 8) | (header[23] & 0xFF);
+                        if (w > 0 && h > 0) {
+                            cached = new int[]{w, h};
+                            TEXTURE_DIMS.put(id, cached);
+                            return cached;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return null;
+    }
+
+    public static void clearTextureDimensionCache() {
+        TEXTURE_DIMS.clear();
+    }
 }

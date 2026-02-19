@@ -268,6 +268,14 @@ public class UICommandProcessor {
                 if (el instanceof UIElementImage img && value != null) img.setRotateAngle(value.getAsFloat());
                 yield false;
             }
+            case "Rotate" -> {
+                // Delta rotation: add angle to current rotation
+                UIElement el = tree.findByName(bodyName);
+                if (el instanceof UIElementImage img && value != null) {
+                    img.setRotateAngle(img.getRotateAngle() + value.getAsFloat());
+                }
+                yield false;
+            }
             case "SetRotatePivot" -> {
                 UIElement el = tree.findByName(bodyName);
                 if (el instanceof UIElementImage img && value != null) {
