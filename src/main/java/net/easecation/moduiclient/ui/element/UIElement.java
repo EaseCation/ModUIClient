@@ -30,8 +30,8 @@ public class UIElement {
     private SizeExpression sizeY;
     private SizeExpression positionX;
     private SizeExpression positionY;
-    private AnchorPoint anchorFrom = AnchorPoint.CENTER;
-    private AnchorPoint anchorTo = AnchorPoint.CENTER;
+    private AnchorPoint anchorFrom = AnchorPoint.TOP_LEFT;
+    private AnchorPoint anchorTo = AnchorPoint.TOP_LEFT;
     private float maxWidth = 0;
     private float maxHeight = 0;
     private float minWidth = 0;
@@ -208,6 +208,8 @@ public class UIElement {
             case "image", "imageElongate", "imageTop" -> new UIElementImage(name, type);
             case "text", "textLeft", "textRight" -> new UIElementText(name, type);
             case "button", "buttonSlice" -> new UIElementButton(name, type);
+            case "scroll" -> new UIElementScroll(name, type);
+            case "draggable" -> new UIElementDraggable(name, type);
             default -> new UIElement(name, type); // panel, stack_panel, or unknown type
         };
 
@@ -247,6 +249,8 @@ public class UIElement {
         }
         return current;
     }
+
+    // --- Position helpers ---
 
     // --- Getters/Setters ---
 

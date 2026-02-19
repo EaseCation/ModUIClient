@@ -282,7 +282,12 @@ public class UIElementImage extends UIElement {
     private static Identifier resolveTexture(String bedrockPath) {
         if (bedrockPath == null || bedrockPath.trim().isEmpty()) return null;
         String path = bedrockPath.toLowerCase(java.util.Locale.ROOT);
-        if (!path.endsWith(".png")) {
+        // Strip .jpg/.jpeg extension (ViaBedrock converts them to .png)
+        if (path.endsWith(".jpg")) {
+            path = path.substring(0, path.length() - 4) + ".png";
+        } else if (path.endsWith(".jpeg")) {
+            path = path.substring(0, path.length() - 5) + ".png";
+        } else if (!path.endsWith(".png")) {
             path = path + ".png";
         }
         return Identifier.of("minecraft", path);

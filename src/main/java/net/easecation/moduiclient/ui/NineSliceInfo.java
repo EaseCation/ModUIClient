@@ -58,6 +58,10 @@ public class NineSliceInfo {
         String normalizedPath = texturePath.toLowerCase(java.util.Locale.ROOT);
         if (normalizedPath.endsWith(".png")) {
             normalizedPath = normalizedPath.substring(0, normalizedPath.length() - 4);
+        } else if (normalizedPath.endsWith(".jpg")) {
+            normalizedPath = normalizedPath.substring(0, normalizedPath.length() - 4);
+        } else if (normalizedPath.endsWith(".jpeg")) {
+            normalizedPath = normalizedPath.substring(0, normalizedPath.length() - 5);
         }
 
         String cacheKey = normalizedPath;

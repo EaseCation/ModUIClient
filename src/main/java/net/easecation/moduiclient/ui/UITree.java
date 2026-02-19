@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.easecation.moduiclient.ModUIClient;
 import net.easecation.moduiclient.ui.element.UIElement;
+import net.easecation.moduiclient.ui.element.UIElementDraggable;
 import net.easecation.moduiclient.ui.layout.LayoutEngine;
 
 import java.util.HashMap;
@@ -85,6 +86,12 @@ public class UITree {
         UIElement element = UIElement.fromJson(json);
         parent.addChild(element);
 
+        ModUIClient.LOGGER.info("[UITree] addElement: name='{}', type='{}', parent='{}' (type={}), path='{}', size=[{}, {}], pos=[{}, {}], anchorFrom={}, anchorTo={}",
+                element.getName(), element.getType(), parent.getName(), parent.getType(),
+                element.getFullPath(), element.getSizeX(), element.getSizeY(),
+                element.getPositionX(), element.getPositionY(),
+                element.getAnchorFrom(), element.getAnchorTo());
+
         // Register in both maps
         String name = element.getName();
         if (name != null && !name.isEmpty()) {
@@ -93,6 +100,11 @@ public class UITree {
         String fullPath = element.getFullPath();
         if (fullPath != null) {
             pathMap.put(fullPath, element);
+        }
+
+        // Apply initial position for draggable elements (needs tree to be built)
+        if (element instanceof UIElementDraggable draggable) {
+            draggable.applyInitialPosition();
         }
 
         return element;

@@ -8,7 +8,9 @@ import net.easecation.moduiclient.ui.UIManager;
 import net.easecation.moduiclient.ui.UITree;
 import net.easecation.moduiclient.ui.element.UIElement;
 import net.easecation.moduiclient.ui.element.UIElementButton;
+import net.easecation.moduiclient.ui.element.UIElementDraggable;
 import net.easecation.moduiclient.ui.element.UIElementImage;
+import net.easecation.moduiclient.ui.element.UIElementScroll;
 import net.easecation.moduiclient.ui.element.UIElementText;
 import net.easecation.moduiclient.ui.layout.AnchorPoint;
 import net.easecation.moduiclient.ui.layout.SizeExpression;
@@ -267,6 +269,69 @@ public class UICommandProcessor {
                 if (el instanceof UIElementImage img && value != null) {
                     JsonArray pivot = value.getAsJsonArray();
                     img.setRotatePivot(pivot.get(0).getAsFloat(), pivot.get(1).getAsFloat());
+                }
+                yield false;
+            }
+
+            // --- Scroll ---
+            case "SetScrollContentSize" -> {
+                UIElement el = tree.findByName(bodyName);
+                if (el instanceof UIElementScroll scroll && value != null) {
+                    JsonArray size = value.getAsJsonArray();
+                    scroll.setContentSizeExprX(SizeExpression.parse(asString(size.get(0))));
+                    scroll.setContentSizeExprY(SizeExpression.parse(asString(size.get(1))));
+                    tree.markLayoutDirty();
+                }
+                yield false;
+            }
+            case "SetScrollViewPos" -> {
+                UIElement el = tree.findByName(bodyName);
+                if (el instanceof UIElementScroll scroll && value != null) {
+                    scroll.setScrollOffset(value.getAsFloat());
+                    tree.markLayoutDirty();
+                }
+                yield false;
+            }
+            case "SetScrollViewPercentValue" -> {
+                UIElement el = tree.findByName(bodyName);
+                if (el instanceof UIElementScroll scroll && value != null) {
+                    scroll.setScrollPercent(value.getAsInt());
+                    tree.markLayoutDirty();
+                }
+                yield false;
+            }
+
+            // --- Draggable ---
+            case "RefreshDraggableBoundary" -> {
+                if (value != null && value.isJsonObject()) {
+                    JsonObject obj = value.getAsJsonObject();
+                    String draggableName = obj.has("draggableName")
+                            ? obj.get("draggableName").getAsString() : null;
+                    if (draggableName != null) {
+                        UIElement el = tree.findByName(draggableName);
+                        if (el instanceof UIElementDraggable drag) {
+                            // Set position if provided
+                            if (obj.has("draggablePosition")) {
+                                JsonObject pos = obj.getAsJsonObject("draggablePosition");
+                                float x = pos.has("x") ? pos.get("x").getAsFloat() : 0;
+                                float y = pos.has("y") ? pos.get("y").getAsFloat() : 0;
+                                drag.setDraggablePosition(x, y);
+                                tree.markLayoutDirty();
+                            }
+                            // Set custom boundary if provided, otherwise reset
+                            if (obj.has("draggableBoundary")) {
+                                JsonObject boundary = obj.getAsJsonObject("draggableBoundary");
+                                drag.setCustomBoundary(
+                                        boundary.has("minX") ? boundary.get("minX").getAsFloat() : 0,
+                                        boundary.has("maxX") ? boundary.get("maxX").getAsFloat() : 0,
+                                        boundary.has("minY") ? boundary.get("minY").getAsFloat() : 0,
+                                        boundary.has("maxY") ? boundary.get("maxY").getAsFloat() : 0
+                                );
+                            } else {
+                                drag.resetBoundary();
+                            }
+                        }
+                    }
                 }
                 yield false;
             }

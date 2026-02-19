@@ -31,12 +31,19 @@ public class SizeExpression {
 
     private final FollowType followType;
     private final float relativeValue; // percentage as fraction (50% = 0.5)
-    private final float absoluteValue; // pixel offset
+    private float absoluteValue; // pixel offset (mutable for drag position updates)
 
     private SizeExpression(FollowType followType, float relativeValue, float absoluteValue) {
         this.followType = followType;
         this.relativeValue = relativeValue;
         this.absoluteValue = absoluteValue;
+    }
+
+    /**
+     * Create a pure absolute pixel value expression.
+     */
+    public static SizeExpression absolute(float value) {
+        return new SizeExpression(FollowType.NONE, 0, value);
     }
 
     /**
@@ -117,6 +124,7 @@ public class SizeExpression {
     public FollowType getFollowType() { return followType; }
     public float getRelativeValue() { return relativeValue; }
     public float getAbsoluteValue() { return absoluteValue; }
+    public void setAbsoluteValue(float absoluteValue) { this.absoluteValue = absoluteValue; }
 
     @Override
     public String toString() {

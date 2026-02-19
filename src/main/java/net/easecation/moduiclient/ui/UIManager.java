@@ -87,13 +87,15 @@ public class UIManager {
         hudTree.initFromJson(uiJson);
         hudInitialized = true;
 
-        // Replay pending commands
+        // Replay pending commands (copy and clear first to avoid ConcurrentModificationException)
         if (!pendingHudCommands.isEmpty()) {
-            ModUIClient.LOGGER.debug("[UIManager] Replaying {} pending HUD commands", pendingHudCommands.size());
-            for (PendingCommand cmd : pendingHudCommands) {
+            List<PendingCommand> toReplay = new ArrayList<>(pendingHudCommands);
+            pendingHudCommands.clear();
+            ModUIClient.LOGGER.debug("[UIManager] Replaying {} pending HUD commands", toReplay.size());
+            for (PendingCommand cmd : toReplay) {
+                if (hudTree == null) break;
                 UICommandProcessor.processBatch(hudTree, cmd.commands);
             }
-            pendingHudCommands.clear();
         }
     }
 
@@ -105,25 +107,18 @@ public class UIManager {
         int w = client.getWindow().getScaledWidth();
         int h = client.getWindow().getScaledHeight();
 
+        // Clear any stale pending commands from previous stack sessions
+        pendingStackCommands.clear();
+
         stackTree = new UITree(w, h);
         stackTree.initFromJson(uiJson);
         stackInitialized = true;
 
-        // Open as Screen
         client.execute(() -> client.setScreen(new ModUIStackScreen(stackTree)));
-
-        // Replay pending commands
-        if (!pendingStackCommands.isEmpty()) {
-            ModUIClient.LOGGER.debug("[UIManager] Replaying {} pending Stack commands", pendingStackCommands.size());
-            for (PendingCommand cmd : pendingStackCommands) {
-                UICommandProcessor.processBatch(stackTree, cmd.commands);
-            }
-            pendingStackCommands.clear();
-        }
     }
 
     /**
-     * Handle stack close from server (RequestRemoveStackNodeEvent).
+     * Handle stack close from server (RequestRemoveStackNodeEvent or CloseStackUI command).
      */
     public void handleStackClose() {
         ModUIClient.LOGGER.info("[UIManager] Stack close received");
@@ -132,9 +127,12 @@ public class UIManager {
         pendingStackCommands.clear();
 
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.currentScreen instanceof ModUIStackScreen) {
-            client.execute(() -> client.setScreen(null));
-        }
+        // Close screen immediately or queue close if screen hasn't been set yet
+        client.execute(() -> {
+            if (client.currentScreen instanceof ModUIStackScreen) {
+                client.setScreen(null);
+            }
+        });
     }
 
     /**
@@ -268,8 +266,19 @@ public class UIManager {
             UICommandProcessor.processBatch(hudTree, commandList);
         } else if ("nukkitStackUI".equals(uiName)) {
             if (!stackInitialized || stackTree == null) {
-                pendingStackCommands.add(new PendingCommand(commandList));
+                // No active stack — discard stale commands (don't buffer)
+                ModUIClient.LOGGER.debug("[UIManager] Stack not active, discarding {} commands for nukkitStackUI", commandList.size());
                 return;
+            }
+            // Log command names for debugging
+            for (int i = 0; i < commandList.size(); i++) {
+                var cmd = commandList.get(i);
+                if (cmd.isJsonObject()) {
+                    var obj = cmd.getAsJsonObject();
+                    ModUIClient.LOGGER.info("[UIManager]   stack cmd[{}]: {} bodyName={}", i,
+                            obj.has("command") ? obj.get("command").getAsString() : "?",
+                            obj.has("bodyName") ? obj.get("bodyName").getAsString() : "?");
+                }
             }
             UICommandProcessor.processBatch(stackTree, commandList);
         } else {

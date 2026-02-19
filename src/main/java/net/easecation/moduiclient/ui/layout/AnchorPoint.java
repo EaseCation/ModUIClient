@@ -28,7 +28,7 @@ public enum AnchorPoint {
     public float getY() { return y; }
 
     public static AnchorPoint fromString(String name) {
-        if (name == null || name.isEmpty()) return CENTER;
+        if (name == null || name.isEmpty()) return TOP_LEFT;
         return switch (name.toLowerCase()) {
             case "top_left" -> TOP_LEFT;
             case "top_middle" -> TOP_MIDDLE;
@@ -39,7 +39,7 @@ public enum AnchorPoint {
             case "bottom_left" -> BOTTOM_LEFT;
             case "bottom_middle" -> BOTTOM_MIDDLE;
             case "bottom_right" -> BOTTOM_RIGHT;
-            default -> CENTER;
+            default -> TOP_LEFT;
         };
     }
 }

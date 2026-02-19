@@ -19,7 +19,7 @@ public class UIElementText extends UIElement {
     private String text = "";
     private float fontSize = 1.0f;
     private boolean textShadow = false;
-    private String textAlignment = "left"; // left, center, right
+    private String textAlignment = "center"; // left, center, right (default: center for Bedrock "text" type)
     private float linePadding = 0f; // extra pixels between lines (scaled with fontSize)
     private float colorR = 1f, colorG = 1f, colorB = 1f, colorA = 1f;
 
