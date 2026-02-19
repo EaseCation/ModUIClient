@@ -12,6 +12,7 @@ import net.easecation.moduiclient.ui.element.UIElementDraggable;
 import net.easecation.moduiclient.ui.element.UIElementImage;
 import net.easecation.moduiclient.ui.element.UIElementScroll;
 import net.easecation.moduiclient.ui.element.UIElementText;
+import net.easecation.moduiclient.ui.texture.TextureUrlManager;
 import net.easecation.moduiclient.ui.animation.UIAnimation;
 import net.easecation.moduiclient.ui.layout.AnchorPoint;
 import net.easecation.moduiclient.ui.layout.SizeExpression;
@@ -180,6 +181,23 @@ public class UICommandProcessor {
             case "SetSprite" -> {
                 UIElement el = tree.findByName(bodyName);
                 if (el instanceof UIElementImage img && value != null) img.setTexturePath(asString(value));
+                yield false;
+            }
+            case "SetTextureUrl" -> {
+                UIElement el = tree.findByName(bodyName);
+                if (el instanceof UIElementImage img && value != null) {
+                    String raw = asString(value);
+                    String url, cacheKey;
+                    if (raw != null && raw.contains(";")) {
+                        int sep = raw.indexOf(';');
+                        cacheKey = raw.substring(0, sep);
+                        url = raw.substring(sep + 1);
+                    } else {
+                        url = raw;
+                        cacheKey = TextureUrlManager.extractCacheKey(url);
+                    }
+                    img.setTextureUrl(url, cacheKey);
+                }
                 yield false;
             }
             case "SetSpriteColor" -> {

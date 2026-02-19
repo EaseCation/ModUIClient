@@ -7,6 +7,7 @@ import net.easecation.moduiclient.protocol.PyRpcCodec;
 import net.easecation.moduiclient.render.ModUIStackScreen;
 import net.easecation.moduiclient.ui.command.UICommandProcessor;
 import net.easecation.moduiclient.ui.element.UIElementImage;
+import net.easecation.moduiclient.ui.texture.TextureUrlManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
@@ -343,6 +344,7 @@ public class UIManager {
         pendingWorldChange = false;
         NineSliceInfo.clearCache();
         UIElementImage.clearTextureDimensionCache();
+        TextureUrlManager.getInstance().cleanup();
     }
 
     // --- Getters ---

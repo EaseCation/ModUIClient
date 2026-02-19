@@ -3,6 +3,7 @@ package net.easecation.moduiclient.ui.element;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.easecation.moduiclient.ui.NineSliceInfo;
+import net.easecation.moduiclient.ui.texture.TextureUrlManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
@@ -98,6 +99,18 @@ public class UIElementImage extends UIElement {
                 rotatePivotX = pivot.get(0).getAsFloat();
                 rotatePivotY = pivot.get(1).getAsFloat();
             }
+        }
+
+        // URL texture (takes priority over textures if both present)
+        if (json.has("textureUrl")) {
+            String url = json.get("textureUrl").getAsString();
+            String cacheKey;
+            if (json.has("textureTmpFile")) {
+                cacheKey = json.get("textureTmpFile").getAsString();
+            } else {
+                cacheKey = TextureUrlManager.extractCacheKey(url);
+            }
+            setTextureUrl(url, cacheKey);
         }
 
         // Sequence animation (sprite sheet)
@@ -319,6 +332,23 @@ public class UIElementImage extends UIElement {
         this.nineSlice = null;
     }
 
+    /**
+     * Set texture from a URL (async download).
+     * The element renders nothing until download completes, then textureId is set.
+     */
+    public void setTextureUrl(String url, String cacheKey) {
+        this.texturePath = null;
+        this.textureExplicitlyEmpty = false;
+        this.nineSliceLoaded = false;
+        this.nineSlice = null;
+
+        TextureUrlManager.getInstance().requestTexture(url, cacheKey, id -> {
+            if (id != null) {
+                this.textureId = id;
+            }
+        });
+    }
+
     public void setColor(float r, float g, float b) {
         this.colorR = r;
         this.colorG = g;
@@ -366,6 +396,10 @@ public class UIElementImage extends UIElement {
         } catch (Exception ignored) {}
 
         return null;
+    }
+
+    public static void cacheTextureDimension(Identifier id, int w, int h) {
+        TEXTURE_DIMS.put(id, new int[]{w, h});
     }
 
     public static void clearTextureDimensionCache() {
