@@ -12,8 +12,12 @@ import net.easecation.moduiclient.ui.element.UIElementDraggable;
 import net.easecation.moduiclient.ui.element.UIElementImage;
 import net.easecation.moduiclient.ui.element.UIElementScroll;
 import net.easecation.moduiclient.ui.element.UIElementText;
+import net.easecation.moduiclient.ui.animation.UIAnimation;
 import net.easecation.moduiclient.ui.layout.AnchorPoint;
 import net.easecation.moduiclient.ui.layout.SizeExpression;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -356,6 +360,30 @@ public class UICommandProcessor {
                     tree.removeElementByName(bodyName);
                 }
                 yield true;
+            }
+
+            // --- Animation ---
+            case "AddAnimations" -> {
+                if (bodyName != null && value != null && value.isJsonArray()) {
+                    UIElement el = tree.findByName(bodyName);
+                    if (el != null) {
+                        JsonArray animConfigs = value.getAsJsonArray();
+                        List<UIAnimation> anims = new ArrayList<>();
+                        for (JsonElement animElem : animConfigs) {
+                            if (animElem.isJsonObject()) {
+                                try {
+                                    anims.add(UIAnimation.fromJson(animElem.getAsJsonObject()));
+                                } catch (Exception e) {
+                                    ModUIClient.LOGGER.warn("[UICommand] Failed to parse animation: {}", animElem, e);
+                                }
+                            }
+                        }
+                        if (!anims.isEmpty()) {
+                            tree.getAnimationManager().addAnimations(bodyName, anims);
+                        }
+                    }
+                }
+                yield false;
             }
 
             // --- Stack control ---

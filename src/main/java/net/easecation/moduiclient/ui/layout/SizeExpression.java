@@ -30,7 +30,7 @@ public class SizeExpression {
     }
 
     private final FollowType followType;
-    private final float relativeValue; // percentage as fraction (50% = 0.5)
+    private float relativeValue; // percentage as fraction (50% = 0.5), mutable for animation
     private float absoluteValue; // pixel offset (mutable for drag position updates)
 
     private SizeExpression(FollowType followType, float relativeValue, float absoluteValue) {
@@ -125,6 +125,7 @@ public class SizeExpression {
     public float getRelativeValue() { return relativeValue; }
     public float getAbsoluteValue() { return absoluteValue; }
     public void setAbsoluteValue(float absoluteValue) { this.absoluteValue = absoluteValue; }
+    public void setRelativeValue(float relativeValue) { this.relativeValue = relativeValue; }
 
     @Override
     public String toString() {

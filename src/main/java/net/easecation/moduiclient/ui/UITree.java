@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.easecation.moduiclient.ModUIClient;
+import net.easecation.moduiclient.ui.animation.AnimationManager;
 import net.easecation.moduiclient.ui.element.UIElement;
 import net.easecation.moduiclient.ui.element.UIElementDraggable;
 import net.easecation.moduiclient.ui.layout.LayoutEngine;
@@ -29,9 +30,11 @@ public class UITree {
     /** Maps element name → element (for parentNode resolution, mirrors ECBaseUI.pathMap) */
     private final Map<String, UIElement> nameMap = new HashMap<>();
     private boolean layoutDirty = true;
+    private final AnimationManager animationManager;
 
     public UITree(float screenWidth, float screenHeight) {
         this.root = new UIElement("root", "panel");
+        this.animationManager = new AnimationManager(this);
         this.root.setFullPath("");
         this.root.setResolvedWidth(screenWidth);
         this.root.setResolvedHeight(screenHeight);
@@ -137,6 +140,7 @@ public class UITree {
     private void removeFromMaps(UIElement element) {
         if (element.getName() != null) {
             nameMap.remove(element.getName());
+            animationManager.removeAnimationsForElement(element.getName());
         }
         if (element.getFullPath() != null) {
             pathMap.remove(element.getFullPath());
@@ -185,6 +189,19 @@ public class UITree {
     public void markLayoutDirty() {
         layoutDirty = true;
     }
+
+    /**
+     * Tick all active animations. Must be called before updateLayout() each frame.
+     */
+    public void tickAnimations() {
+        if (animationManager.hasAnimations()) {
+            if (animationManager.tick()) {
+                markLayoutDirty();
+            }
+        }
+    }
+
+    public AnimationManager getAnimationManager() { return animationManager; }
 
     public UIElement getRoot() { return root; }
 }

@@ -314,6 +314,7 @@ public class UIManager {
 
         if (!hudInitialized || hudTree == null) return;
 
+        hudTree.tickAnimations();
         hudTree.updateLayout(viewW, viewH);
         hudTree.getRoot().renderTree(context, tickDelta);
     }

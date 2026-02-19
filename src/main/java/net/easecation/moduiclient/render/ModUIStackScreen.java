@@ -39,7 +39,8 @@ public class ModUIStackScreen extends Screen {
 
         if (tree == null) return;
 
-        // Update layout and render
+        // Tick animations and update layout
+        tree.tickAnimations();
         tree.updateLayout(this.width, this.height);
 
         // Update button hover states
