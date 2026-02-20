@@ -293,6 +293,9 @@ public class UIManager {
     public void renderHud(DrawContext context, float tickDelta) {
         if (!connected) return;
 
+        // Process pending GPU texture registrations (throttled to avoid stalls)
+        TextureUrlManager.getInstance().tick();
+
         MinecraftClient client = MinecraftClient.getInstance();
         int screenW = client.getWindow().getWidth();
         int screenH = client.getWindow().getHeight();
