@@ -30,6 +30,9 @@ public class UIElementButton extends UIElement {
     private boolean hovered = false;
     private boolean pressed = false;
 
+    // When true, clicking this button closes the StackUI (same as pressing ESC)
+    private boolean clientClose = false;
+
     public UIElementButton(String name, String type) {
         super(name, type);
     }
@@ -52,6 +55,9 @@ public class UIElementButton extends UIElement {
         }
         if (json.has("button_label")) {
             buttonLabel = json.get("button_label").getAsString();
+        }
+        if (json.has("clientClose")) {
+            clientClose = json.get("clientClose").getAsBoolean();
         }
     }
 
@@ -159,4 +165,5 @@ public class UIElementButton extends UIElement {
     public boolean isHovered() { return hovered; }
     public boolean isPressed() { return pressed; }
     public void setPressed(boolean pressed) { this.pressed = pressed; }
+    public boolean isClientClose() { return clientClose; }
 }

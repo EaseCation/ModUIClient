@@ -40,8 +40,22 @@ public class UIElementScroll extends UIElement {
     private static final int THUMB_COLOR = 0x80FFFFFF;    // brighter white
     private static final int THUMB_HOVER_COLOR = 0xA0FFFFFF;
 
+    // Scrollbar auto-hide constants
+    private static final long FADE_IN_DURATION_MS = 150;
+    private static final long FADE_OUT_DURATION_MS = 300;
+    private static final long INACTIVITY_DELAY_MS = 1500;
+    private static final float HOVER_ZONE_EXTEND = 20f;
+
     // Scrollbar drag state (managed by ModUIStackScreen)
     private boolean thumbHovered = false;
+
+    // Scrollbar auto-hide state
+    private float scrollbarAlpha = 0f;
+    private float scrollbarAlphaTarget = 0f;
+    private long lastActivityNanos = 0;
+    private long lastFrameNanos = 0;
+    private boolean mouseNearScrollbar = false;
+    private boolean scrollbarDragging = false;
 
     public UIElementScroll(String name, String type) {
         super(name, type);
@@ -103,6 +117,9 @@ public class UIElementScroll extends UIElement {
         float maxScroll = getMaxScrollOffset();
         if (maxScroll <= 0) return; // no scrollbar needed
 
+        updateScrollbarAlpha();
+        if (scrollbarAlpha <= 0.001f) return; // fully hidden
+
         float viewportH = getResolvedHeight();
         float scrollX = getResolvedX() + getResolvedWidth() - SCROLLBAR_WIDTH - SCROLLBAR_PADDING;
         float scrollY = getResolvedY() + SCROLLBAR_PADDING;
@@ -112,7 +129,7 @@ public class UIElementScroll extends UIElement {
         context.fill(
                 (int) scrollX, (int) scrollY,
                 (int) (scrollX + SCROLLBAR_WIDTH), (int) (scrollY + trackH),
-                TRACK_COLOR
+                modulateAlpha(TRACK_COLOR, scrollbarAlpha)
         );
 
         // Thumb
@@ -123,8 +140,39 @@ public class UIElementScroll extends UIElement {
         context.fill(
                 (int) scrollX, (int) thumbY,
                 (int) (scrollX + SCROLLBAR_WIDTH), (int) (thumbY + thumbH),
-                thumbColor
+                modulateAlpha(thumbColor, scrollbarAlpha)
         );
+    }
+
+    private void updateScrollbarAlpha() {
+        long now = System.nanoTime();
+        float deltaSeconds = lastFrameNanos == 0 ? (1f / 60f) : (now - lastFrameNanos) / 1_000_000_000f;
+        deltaSeconds = Math.min(deltaSeconds, 0.1f);
+        lastFrameNanos = now;
+
+        // Determine if we should start fading out
+        if (!mouseNearScrollbar && !scrollbarDragging && scrollbarAlphaTarget > 0f) {
+            long elapsedMs = (now - lastActivityNanos) / 1_000_000L;
+            if (elapsedMs >= INACTIVITY_DELAY_MS) {
+                scrollbarAlphaTarget = 0f;
+            }
+        }
+
+        // Interpolate toward target
+        if (scrollbarAlpha < scrollbarAlphaTarget) {
+            float speed = 1.0f / (FADE_IN_DURATION_MS / 1000f);
+            scrollbarAlpha = Math.min(scrollbarAlphaTarget, scrollbarAlpha + speed * deltaSeconds);
+        } else if (scrollbarAlpha > scrollbarAlphaTarget) {
+            float speed = 1.0f / (FADE_OUT_DURATION_MS / 1000f);
+            scrollbarAlpha = Math.max(scrollbarAlphaTarget, scrollbarAlpha - speed * deltaSeconds);
+        }
+    }
+
+    private static int modulateAlpha(int color, float alphaMul) {
+        int a = (color >>> 24) & 0xFF;
+        int rgb = color & 0x00FFFFFF;
+        int newA = Math.round(a * alphaMul);
+        return (Math.max(0, Math.min(255, newA)) << 24) | rgb;
     }
 
     // --- Scroll position ---
@@ -235,6 +283,42 @@ public class UIElementScroll extends UIElement {
     }
 
     public void setThumbHovered(boolean hovered) { this.thumbHovered = hovered; }
+
+    // --- Scrollbar auto-hide ---
+
+    public void notifyScrollbarActivity() {
+        lastActivityNanos = System.nanoTime();
+        scrollbarAlphaTarget = 1.0f;
+    }
+
+    public boolean isPointNearScrollbar(float x, float y) {
+        float[] track = getTrackBounds();
+        if (track == null) return false;
+        float extendedX = track[0] - HOVER_ZONE_EXTEND;
+        return x >= extendedX && x < track[0] + track[2]
+                && y >= track[1] && y < track[1] + track[3];
+    }
+
+    public void setMouseNearScrollbar(boolean near) {
+        boolean wasNear = this.mouseNearScrollbar;
+        this.mouseNearScrollbar = near;
+        if (near && !wasNear) {
+            notifyScrollbarActivity();
+        } else if (!near && wasNear) {
+            lastActivityNanos = System.nanoTime();
+        }
+    }
+
+    public void setScrollbarDragging(boolean dragging) {
+        this.scrollbarDragging = dragging;
+        if (dragging) {
+            notifyScrollbarActivity();
+        }
+    }
+
+    public boolean isScrollbarInteractable() {
+        return scrollbarAlpha >= 0.1f;
+    }
 
     // --- Content size ---
 

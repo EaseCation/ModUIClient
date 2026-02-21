@@ -67,10 +67,12 @@ public class ModUIStackScreen extends Screen {
                     // Start scrollbar drag
                     scrollbarDragTarget = scroll;
                     scrollbarDragLastY = my;
+                    scroll.setScrollbarDragging(true);
                     return true;
                 } else if (scroll.isPointOnTrack((float) mx, (float) my)) {
                     // Page scroll on track click
                     scroll.handleTrackClick((float) my);
+                    scroll.notifyScrollbarActivity();
                     tree.markLayoutDirty();
                     return true;
                 }
@@ -102,6 +104,7 @@ public class ModUIStackScreen extends Screen {
         if (click.button() == 0) {
             // End scrollbar drag
             if (scrollbarDragTarget != null) {
+                scrollbarDragTarget.setScrollbarDragging(false);
                 scrollbarDragTarget = null;
                 return true;
             }
@@ -123,6 +126,12 @@ public class ModUIStackScreen extends Screen {
                         fullPath != null ? fullPath : buttonName,
                         buttonName
                 );
+                if (clickedButton.isClientClose()) {
+                    ModUIClient.LOGGER.info("[StackScreen] clientClose button — closing stack");
+                    releaseAllButtons(tree.getRoot());
+                    this.close();
+                    return super.mouseReleased(click);
+                }
             }
             releaseAllButtons(tree.getRoot());
         }
@@ -142,6 +151,7 @@ public class ModUIStackScreen extends Screen {
                 double dy = mouseY - scrollbarDragLastY;
                 float scrollDelta = scrollbarDragTarget.trackDeltaToScrollDelta((float) dy);
                 scrollbarDragTarget.setScrollOffset(scrollbarDragTarget.getScrollOffset() + scrollDelta);
+                scrollbarDragTarget.notifyScrollbarActivity();
                 scrollbarDragLastY = mouseY;
                 tree.markLayoutDirty();
                 return true;
@@ -167,6 +177,7 @@ public class ModUIStackScreen extends Screen {
         if (scroll != null) {
             float step = 20f;
             scroll.setScrollOffset(scroll.getScrollOffset() - (float) verticalAmount * step);
+            scroll.notifyScrollbarActivity();
             tree.markLayoutDirty();
             return true;
         }
@@ -205,6 +216,7 @@ public class ModUIStackScreen extends Screen {
     private void updateScrollThumbHover(UIElement element, double mouseX, double mouseY) {
         if (element instanceof UIElementScroll scroll) {
             scroll.setThumbHovered(scroll.isPointOnThumb((float) mouseX, (float) mouseY));
+            scroll.setMouseNearScrollbar(scroll.isPointNearScrollbar((float) mouseX, (float) mouseY));
         }
         for (UIElement child : element.getChildren()) {
             updateScrollThumbHover(child, mouseX, mouseY);
@@ -252,6 +264,7 @@ public class ModUIStackScreen extends Screen {
         // Check self
         if (element instanceof UIElementScroll scroll
                 && scroll.isVisible()
+                && scroll.isScrollbarInteractable()
                 && scroll.containsPoint((float) mouseX, (float) mouseY)) {
             float[] track = scroll.getTrackBounds();
             if (track != null
