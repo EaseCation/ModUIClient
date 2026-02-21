@@ -173,6 +173,23 @@ public class UIElementImage extends UIElement {
             NineSliceInfo ns = getNineSlice();
             if (ns != null && ns.isNineSlice() && ns.baseWidth > 0 && ns.baseHeight > 0) {
                 renderNineSliceStatic(context, textureId, x, y, w, h, ns, color);
+            } else if ("imageElongate".equals(getType())) {
+                // Aspect-ratio-preserving fit (like CSS object-fit: contain).
+                // Scales to fill max area while keeping original proportions; centers with letterbox/pillarbox.
+                int[] dims = queryTextureDimensions(textureId);
+                if (dims != null && dims[0] > 0 && dims[1] > 0) {
+                    float scale = Math.min((float) w / dims[0], (float) h / dims[1]);
+                    int drawW = (int) (dims[0] * scale);
+                    int drawH = (int) (dims[1] * scale);
+                    int drawX = x + (w - drawW) / 2;
+                    int drawY = y + (h - drawH) / 2;
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                            drawX, drawY, 0, 0, drawW, drawH, drawW, drawH, color);
+                } else {
+                    // Dimensions unknown — fallback to stretch
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                            x, y, 0, 0, w, h, w, h, color);
+                }
             } else if (hasSequence) {
                 // Sprite sheet animation: calculate current frame UV
                 float elapsed = (System.currentTimeMillis() - seqStartTime) / 1000f;

@@ -217,10 +217,13 @@ public class UIManager {
     public void sendCurrentScreenInfo() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.getWindow() == null) return;
-        int screenW = client.getWindow().getWidth();
-        int screenH = client.getWindow().getHeight();
-        int viewW = client.getWindow().getScaledWidth();
-        int viewH = client.getWindow().getScaledHeight();
+        // Bedrock GetScreenSize(): logical resolution (scaledWidth/scaledHeight)
+        int screenW = client.getWindow().getScaledWidth();
+        int screenH = client.getWindow().getScaledHeight();
+        // Bedrock GetScreenViewInfo(): physical pixels rounded up to GUI scale multiple
+        int scale = (int) client.getWindow().getScaleFactor();
+        int viewW = screenW * scale;
+        int viewH = screenH * scale;
         lastScreenW = screenW;
         lastScreenH = screenH;
         lastViewW = viewW;
@@ -297,10 +300,13 @@ public class UIManager {
         TextureUrlManager.getInstance().tick();
 
         MinecraftClient client = MinecraftClient.getInstance();
-        int screenW = client.getWindow().getWidth();
-        int screenH = client.getWindow().getHeight();
-        int viewW = client.getWindow().getScaledWidth();
-        int viewH = client.getWindow().getScaledHeight();
+        // Bedrock GetScreenSize(): logical resolution
+        int screenW = client.getWindow().getScaledWidth();
+        int screenH = client.getWindow().getScaledHeight();
+        // Bedrock GetScreenViewInfo(): physical pixels rounded up to GUI scale multiple
+        int scale = (int) client.getWindow().getScaleFactor();
+        int viewW = screenW * scale;
+        int viewH = screenH * scale;
 
         // Detect screen size change and debounce ScreenInfoEvent
         if (screenW != lastScreenW || screenH != lastScreenH
@@ -320,7 +326,8 @@ public class UIManager {
         if (!hudInitialized || hudTree == null) return;
 
         hudTree.tickAnimations();
-        hudTree.updateLayout(viewW, viewH);
+        // Layout uses MC logical coordinates (scaledWidth/scaledHeight), not physical pixels
+        hudTree.updateLayout(client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight());
         hudTree.getRoot().renderTree(context, tickDelta);
     }
 
