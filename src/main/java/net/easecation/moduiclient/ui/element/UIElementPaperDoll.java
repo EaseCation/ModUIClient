@@ -5,17 +5,23 @@ import net.easecation.moduiclient.ModUIClient;
 import net.easecation.moduiclient.entity.EntityMappingStore;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.entity.state.EntityRenderState;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
  * Paper doll element — renders a 3D entity model inside the UI.
  *
  * Supports binding to a world entity via entity_id, with optional
- * auto-rotation and scale controls.
+ * auto-rotation, scale, and interactive mouse drag rotation.
  *
- * Reference: ECBaseUI.py paperDoll handling, ModUIPaperDoll.java (server-side data)
+ * Uses DrawContext.addEntity() directly (bypassing InventoryScreen.drawEntity)
+ * to achieve full 360-degree rotation control.
  */
 public class UIElementPaperDoll extends UIElement {
 
@@ -27,6 +33,12 @@ public class UIElementPaperDoll extends UIElement {
 
     // Auto-rotation state
     private float autoRotAngle = 0f;
+
+    // Mouse drag state
+    private boolean dragging = false;
+    private float dragAngleOffset = 0f;
+    private static final float DRAG_SENSITIVITY = 0.8f;
+    private static final float EASE_BACK_SPEED = 0.1f;
 
     public UIElementPaperDoll(String name, String type) {
         super(name, type);
@@ -73,8 +85,21 @@ public class UIElementPaperDoll extends UIElement {
      */
     public void setDollFromJson(JsonObject doll) {
         parseDoll(doll);
-        // Reset auto-rotation when entity changes
         autoRotAngle = 0f;
+    }
+
+    // --- Mouse drag API (called by ModUIStackScreen) ---
+
+    public void beginDrag() {
+        dragging = true;
+    }
+
+    public void processDrag(double deltaX) {
+        dragAngleOffset -= (float) deltaX * DRAG_SENSITIVITY;
+    }
+
+    public void endDrag() {
+        dragging = false;
     }
 
     @Override
@@ -94,7 +119,7 @@ public class UIElementPaperDoll extends UIElement {
 
         // Translate Bedrock runtime entity ID → Java entity ID
         int javaId = EntityMappingStore.getInstance().getJavaEntityId(entityId);
-        if (javaId < 0) return; // Mapping not yet received
+        if (javaId < 0) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;
@@ -102,28 +127,65 @@ public class UIElementPaperDoll extends UIElement {
         Entity entity = client.world.getEntityById(javaId);
         if (!(entity instanceof LivingEntity living)) return;
 
-        // Calculate entity scale based on element size
+        // Ease drag offset back to 0 when not dragging
+        if (!dragging && dragAngleOffset != 0) {
+            dragAngleOffset *= (1.0f - EASE_BACK_SPEED);
+            if (Math.abs(dragAngleOffset) < 0.5f) {
+                dragAngleOffset = 0f;
+            }
+        }
+
+        // Calculate final rotation angle
+        float baseAngle;
+        if ("auto".equals(rotation)) {
+            if (!dragging) {
+                autoRotAngle += tickDelta * 0.8f;
+            }
+            baseAngle = autoRotAngle;
+        } else {
+            baseAngle = initRotY;
+        }
+        float displayAngle = 180f + baseAngle + dragAngleOffset;
+
+        // Calculate entity scale
         int size = (int) (Math.min(w, h) * 0.8f * scale);
         if (size <= 0) size = 1;
 
-        float centerX = (x1 + x2) / 2.0f;
-        float centerY = (y1 + y2) / 2.0f;
+        renderEntityRotated(context, living, x1, y1, x2, y2, size, displayAngle);
+    }
 
-        float mouseX, mouseY;
-        if ("auto".equals(rotation)) {
-            // Auto-rotate: sweep mouse position in a circle
-            autoRotAngle += tickDelta * 2f;
-            mouseX = centerX + (float) Math.sin(Math.toRadians(autoRotAngle)) * 40f;
-            mouseY = centerY - 10f; // Slightly above center for natural look
-        } else {
-            // Static: apply init_rot_y offset
-            // init_rot_y is in degrees; convert to fake mouse offset
-            // tan(angle) * 40 gives the mouse offset that produces that rotation
-            mouseX = centerX + (float) Math.tan(Math.toRadians(initRotY)) * 40f;
-            mouseY = centerY - 10f;
+    /**
+     * Render entity with full 360-degree rotation control.
+     * Bypasses InventoryScreen.drawEntity which limits rotation to ~60 degrees.
+     */
+    @SuppressWarnings("unchecked")
+    private static void renderEntityRotated(DrawContext context, LivingEntity entity,
+                                            int x1, int y1, int x2, int y2, int size, float bodyYawDeg) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        EntityRenderManager renderManager = client.getEntityRenderDispatcher();
+        EntityRenderer<Entity, EntityRenderState> renderer =
+                (EntityRenderer<Entity, EntityRenderState>) renderManager.getRenderer(entity);
+        EntityRenderState renderState = renderer.getAndUpdateRenderState(entity, 1.0f);
+        renderState.light = 15728880; // Full brightness
+        renderState.shadowPieces.clear();
+        renderState.outlineColor = 0;
+
+        if (renderState instanceof LivingEntityRenderState livingState) {
+            livingState.bodyYaw = bodyYawDeg;
+            livingState.relativeHeadYaw = 0;
+            livingState.pitch = 0;
+            livingState.width /= livingState.baseScale;
+            livingState.height /= livingState.baseScale;
+            livingState.baseScale = 1.0f;
         }
 
-        InventoryScreen.drawEntity(context, x1, y1, x2, y2, size, 0f, mouseX, mouseY, living);
+        // Pose quaternion: Z-flip (π) to render upright
+        Quaternionf poseQuat = new Quaternionf().rotateZ((float) Math.PI);
+        // No camera tilt
+        Quaternionf cameraQuat = new Quaternionf();
+
+        Vector3f offset = new Vector3f(0, renderState.height / 2f, 0);
+        context.addEntity(renderState, (float) size, offset, poseQuat, cameraQuat, x1, y1, x2, y2);
     }
 
     // --- Getters ---

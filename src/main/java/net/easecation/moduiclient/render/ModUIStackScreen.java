@@ -6,6 +6,7 @@ import net.easecation.moduiclient.ui.UITree;
 import net.easecation.moduiclient.ui.element.UIElement;
 import net.easecation.moduiclient.ui.element.UIElementButton;
 import net.easecation.moduiclient.ui.element.UIElementDraggable;
+import net.easecation.moduiclient.ui.element.UIElementPaperDoll;
 import net.easecation.moduiclient.ui.element.UIElementScroll;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
@@ -26,6 +27,10 @@ public class ModUIStackScreen extends Screen {
 
     // Element drag state
     private UIElementDraggable activeDraggable = null;
+
+    // PaperDoll drag state
+    private UIElementPaperDoll activePaperDoll = null;
+    private double paperDollDragLastX = 0;
 
     public ModUIStackScreen(UITree tree) {
         super(Text.literal("ModUI"));
@@ -78,14 +83,23 @@ public class ModUIStackScreen extends Screen {
                 }
             }
 
-            // 2. Check button click (before draggable, so buttons inside draggable areas work)
+            // 2. Check paper doll (drag to rotate)
+            UIElementPaperDoll paperDoll = findPaperDoll(tree.getRoot(), mx, my);
+            if (paperDoll != null) {
+                activePaperDoll = paperDoll;
+                paperDollDragLastX = mx;
+                paperDoll.beginDrag();
+                return true;
+            }
+
+            // 3. Check button click (before draggable, so buttons inside draggable areas work)
             UIElementButton clickedButton = findButton(tree.getRoot(), mx, my);
             if (clickedButton != null) {
                 clickedButton.setPressed(true);
                 return true;
             }
 
-            // 3. Check draggable element
+            // 4. Check draggable element
             UIElementDraggable draggable = findDraggable(tree.getRoot(), mx, my);
             if (draggable != null) {
                 activeDraggable = draggable;
@@ -106,6 +120,13 @@ public class ModUIStackScreen extends Screen {
             if (scrollbarDragTarget != null) {
                 scrollbarDragTarget.setScrollbarDragging(false);
                 scrollbarDragTarget = null;
+                return true;
+            }
+
+            // End paper doll drag
+            if (activePaperDoll != null) {
+                activePaperDoll.endDrag();
+                activePaperDoll = null;
                 return true;
             }
 
@@ -145,6 +166,14 @@ public class ModUIStackScreen extends Screen {
         if (tree == null) return super.mouseDragged(click, deltaX, deltaY);
         if (click.button() == 0) {
             double mouseX = click.x(), mouseY = click.y();
+
+            // Paper doll rotation drag
+            if (activePaperDoll != null) {
+                double dx = mouseX - paperDollDragLastX;
+                activePaperDoll.processDrag(dx);
+                paperDollDragLastX = mouseX;
+                return true;
+            }
 
             // Scrollbar thumb drag
             if (scrollbarDragTarget != null) {
@@ -294,6 +323,23 @@ public class ModUIStackScreen extends Screen {
                 && drag.isVisible()
                 && drag.containsPoint((float) mouseX, (float) mouseY)) {
             return drag;
+        }
+        return null;
+    }
+
+    private UIElementPaperDoll findPaperDoll(UIElement element, double mouseX, double mouseY) {
+        if (element instanceof UIElementScroll && !element.containsPoint((float) mouseX, (float) mouseY)) {
+            return null;
+        }
+        for (int i = element.getChildren().size() - 1; i >= 0; i--) {
+            UIElement child = element.getChildren().get(i);
+            UIElementPaperDoll found = findPaperDoll(child, mouseX, mouseY);
+            if (found != null) return found;
+        }
+        if (element instanceof UIElementPaperDoll doll
+                && doll.isVisible()
+                && doll.containsPoint((float) mouseX, (float) mouseY)) {
+            return doll;
         }
         return null;
     }
