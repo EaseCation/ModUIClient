@@ -1,6 +1,7 @@
 package net.easecation.moduiclient.payload;
 
 import net.easecation.moduiclient.ModUIClient;
+import net.easecation.moduiclient.entity.EntityMappingStore;
 import net.easecation.moduiclient.protocol.PyRpcCodec;
 import net.easecation.moduiclient.ui.UIManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -31,6 +32,10 @@ public class ModUIPayload implements CustomPayload {
                         byte[] msgpackData = new byte[buf.readableBytes()];
                         buf.readBytes(msgpackData);
                         return new ModUIPayload(PayloadType.PY_RPC_DATA, msgpackData);
+                    case 2: // ENTITY_MAPPING
+                        byte[] mappingData = new byte[buf.readableBytes()];
+                        buf.readBytes(mappingData);
+                        return new ModUIPayload(PayloadType.ENTITY_MAPPING, mappingData);
                     default:
                         throw new IllegalStateException("Unknown ModUI payload type: " + type);
                 }
@@ -58,6 +63,11 @@ public class ModUIPayload implements CustomPayload {
                     PyRpcCodec.handleS2C(data);
                 }
                 break;
+            case ENTITY_MAPPING:
+                if (data != null) {
+                    EntityMappingStore.getInstance().handlePayload(data);
+                }
+                break;
         }
     }
 
@@ -79,7 +89,7 @@ public class ModUIPayload implements CustomPayload {
     }
 
     public enum PayloadType {
-        CONFIRM, PY_RPC_DATA
+        CONFIRM, PY_RPC_DATA, ENTITY_MAPPING
     }
 
 }

@@ -1,5 +1,6 @@
 package net.easecation.moduiclient;
 
+import net.easecation.moduiclient.entity.EntityMappingStore;
 import net.easecation.moduiclient.payload.ModUIPayload;
 import net.easecation.moduiclient.protocol.PyRpcCodec;
 import net.easecation.moduiclient.render.HudLayerRenderer;
@@ -53,6 +54,7 @@ public class ModUIClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             LOGGER.info("[ModUIClient] Disconnected");
             UIManager.getInstance().setConnected(false);
+            EntityMappingStore.getInstance().clear();
         });
 
         // World change (initial join + dimension change + cross-server transfer)

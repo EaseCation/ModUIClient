@@ -209,6 +209,7 @@ public class UIElement {
             case "text", "textLeft", "textRight" -> new UIElementText(name, type);
             case "button", "buttonSlice" -> new UIElementButton(name, type);
             case "scroll" -> new UIElementScroll(name, type);
+            case "paperDoll" -> new UIElementPaperDoll(name, type);
             case "draggable" -> new UIElementDraggable(name, type);
             default -> new UIElement(name, type); // panel, stack_panel, or unknown type
         };

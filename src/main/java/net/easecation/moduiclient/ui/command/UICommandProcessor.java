@@ -10,6 +10,7 @@ import net.easecation.moduiclient.ui.element.UIElement;
 import net.easecation.moduiclient.ui.element.UIElementButton;
 import net.easecation.moduiclient.ui.element.UIElementDraggable;
 import net.easecation.moduiclient.ui.element.UIElementImage;
+import net.easecation.moduiclient.ui.element.UIElementPaperDoll;
 import net.easecation.moduiclient.ui.element.UIElementScroll;
 import net.easecation.moduiclient.ui.element.UIElementText;
 import net.easecation.moduiclient.ui.texture.TextureUrlManager;
@@ -362,6 +363,15 @@ public class UICommandProcessor {
                             }
                         }
                     }
+                }
+                yield false;
+            }
+
+            // --- PaperDoll ---
+            case "RenderEntity" -> {
+                UIElement el = tree.findByName(bodyName);
+                if (el instanceof UIElementPaperDoll paperDoll && value != null && value.isJsonObject()) {
+                    paperDoll.setDollFromJson(value.getAsJsonObject());
                 }
                 yield false;
             }
