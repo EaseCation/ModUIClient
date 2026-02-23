@@ -8,6 +8,7 @@ import net.easecation.moduiclient.ui.layout.SizeExpression;
 import net.minecraft.client.gui.DrawContext;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -39,6 +40,10 @@ public class UIElement {
 
     // Stack panel orientation ("vertical" or "horizontal")
     private String orientation = "vertical";
+
+    // Cached sorted children list (invalidated on child add/remove/layer change)
+    private List<UIElement> sortedChildrenCache;
+    private boolean childrenDirty = true;
 
     // Visual properties
     private boolean visible = true;
@@ -175,10 +180,13 @@ public class UIElement {
 
         render(context, tickDelta);
 
-        // Render children sorted by layer
-        List<UIElement> sortedChildren = new ArrayList<>(children);
-        sortedChildren.sort((a, b) -> Integer.compare(a.layer, b.layer));
-        for (UIElement child : sortedChildren) {
+        // Render children sorted by layer (cached; rebuilt only when dirty)
+        if (childrenDirty || sortedChildrenCache == null) {
+            sortedChildrenCache = new ArrayList<>(children);
+            sortedChildrenCache.sort(Comparator.comparingInt(UIElement::getLayer));
+            childrenDirty = false;
+        }
+        for (UIElement child : sortedChildrenCache) {
             child.renderTree(context, tickDelta);
         }
 
@@ -224,11 +232,13 @@ public class UIElement {
         children.add(child);
         child.parent = this;
         child.fullPath = (this.fullPath != null ? this.fullPath : "") + "/" + child.name;
+        childrenDirty = true;
     }
 
     public void removeChild(UIElement child) {
         children.remove(child);
         child.parent = null;
+        childrenDirty = true;
     }
 
     public UIElement findByPath(String path) {
@@ -292,7 +302,10 @@ public class UIElement {
     public float getAlpha() { return alpha; }
     public void setAlpha(float alpha) { this.alpha = alpha; }
     public int getLayer() { return layer; }
-    public void setLayer(int layer) { this.layer = layer; }
+    public void setLayer(int layer) {
+        this.layer = layer;
+        if (parent != null) parent.childrenDirty = true;
+    }
 
     public String getOrientation() { return orientation; }
     public void setOrientation(String orientation) { this.orientation = orientation; }
