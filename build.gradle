@@ -24,6 +24,9 @@ dependencies {
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	modImplementation "net.easecation:netease-bridge-client-fabric:1.0.0"
+	implementation "net.easecation:netease-bridge-client-fabric:1.0.0"
+	implementation "net.easecation:netease-bridge-client-common:1.0.0"
 
 	// MsgPack for PY_RPC packet parsing
 	lib("org.msgpack:msgpack-core:0.9.8") {

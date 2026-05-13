@@ -2,12 +2,12 @@ package net.easecation.moduiclient.ui;
 
 import com.google.gson.JsonArray;
 import net.easecation.moduiclient.ModUIClient;
-import net.easecation.moduiclient.payload.ModUIPayload;
 import net.easecation.moduiclient.protocol.PyRpcCodec;
 import net.easecation.moduiclient.render.ModUIStackScreen;
 import net.easecation.moduiclient.ui.command.UICommandProcessor;
 import net.easecation.moduiclient.ui.element.UIElementImage;
 import net.easecation.moduiclient.ui.texture.TextureUrlManager;
+import net.easecation.neteasebridge.client.common.NeteaseRpcClient;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
@@ -161,7 +161,7 @@ public class UIManager {
         if (!connected) return;
         byte[] data = PyRpcCodec.buildButtonClickC2S(
                 "RequestClickStackBtEvent", 0, buttonPath, buttonName);
-        ModUIPayload.sendC2S(data);
+        NeteaseRpcClient.sendRaw(data);
         ModUIClient.LOGGER.debug("[UIManager] Sent Stack button click: path={}, name={}", buttonPath, buttonName);
     }
 
@@ -174,7 +174,7 @@ public class UIManager {
         if (!connected) return;
         byte[] data = PyRpcCodec.buildButtonClickC2S(
                 "RequestClickHudBtEvent", 0, buttonPath, buttonName);
-        ModUIPayload.sendC2S(data);
+        NeteaseRpcClient.sendRaw(data);
         ModUIClient.LOGGER.debug("[UIManager] Sent HUD button click: path={}, name={}", buttonPath, buttonName);
     }
 
@@ -192,7 +192,7 @@ public class UIManager {
         ModUIClient.LOGGER.info("[UIManager] sendKeyPress: screen={}, vk={}, isDown={}", screenName, key, isDown);
         byte[] data = PyRpcCodec.buildKeyPressC2S(screenName, key, isDown);
         if (data != null) {
-            ModUIPayload.sendC2S(data);
+            NeteaseRpcClient.sendRaw(data);
         }
     }
 
@@ -205,7 +205,7 @@ public class UIManager {
         if (!connected) return;
         byte[] data = PyRpcCodec.buildScreenInfoC2S(screenW, screenH, viewW, viewH);
         if (data != null) {
-            ModUIPayload.sendC2S(data);
+            NeteaseRpcClient.sendRaw(data);
             ModUIClient.LOGGER.info("[UIManager] Sent ScreenInfo: screen={}x{}, view={}x{}",
                     screenW, screenH, viewW, viewH);
         }
@@ -240,7 +240,7 @@ public class UIManager {
         ModUIClient.LOGGER.info("[UIManager] requestHud() called — sending RequestHudNodeDataEvent C2S");
         byte[] data = PyRpcCodec.buildHudRequestC2S();
         if (data != null) {
-            ModUIPayload.sendC2S(data);
+            NeteaseRpcClient.sendRaw(data);
         }
     }
 

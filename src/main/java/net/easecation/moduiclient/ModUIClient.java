@@ -1,15 +1,13 @@
 package net.easecation.moduiclient;
 
 import net.easecation.moduiclient.entity.EntityMappingStore;
-import net.easecation.moduiclient.payload.ModUIPayload;
 import net.easecation.moduiclient.protocol.PyRpcCodec;
 import net.easecation.moduiclient.render.HudLayerRenderer;
 import net.easecation.moduiclient.ui.UIManager;
+import net.easecation.neteasebridge.client.fabric.NeteaseRpcEvents;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.impl.networking.RegistrationPayload;
 import net.minecraft.network.packet.c2s.common.CustomPayloadC2SPacket;
 import net.minecraft.util.Identifier;
@@ -22,26 +20,32 @@ public class ModUIClient implements ClientModInitializer {
 
     public static final String MOD_ID = "moduiclient";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    private static final String MOD_EVENT_NAMESPACE = "ECNukkitClientMod";
+    private static final String MOD_EVENT_SYSTEM = "ECNukkitClientSystem";
 
     @Override
     public void onInitializeClient() {
         LOGGER.info("[ModUIClient] Initializing...");
 
-        // Register payload channel (S2C + C2S)
-        PayloadTypeRegistry.playS2C().register(ModUIPayload.ID, ModUIPayload.STREAM_CODEC);
-        PayloadTypeRegistry.playC2S().register(ModUIPayload.ID, ModUIPayload.STREAM_CODEC);
-        ClientPlayNetworking.registerGlobalReceiver(ModUIPayload.ID, (payload, context) -> {
-            context.client().execute(() -> payload.handle());
+        NeteaseRpcEvents.CONNECTED.register(() -> UIManager.getInstance().setConnected(true));
+        NeteaseRpcEvents.DISCONNECTED.register(() -> {
+            UIManager.getInstance().setConnected(false);
+            EntityMappingStore.getInstance().clear();
         });
+        NeteaseRpcEvents.MOD_EVENT_S2C.register(event -> {
+            if (MOD_EVENT_NAMESPACE.equals(event.namespace()) && MOD_EVENT_SYSTEM.equals(event.system())) {
+                PyRpcCodec.handleS2C(event.rawPayload());
+            }
+        });
+        NeteaseRpcEvents.ENTITY_MAPPING_S2C.register(data -> EntityMappingStore.getInstance().handlePayload(data));
 
         // Register HUD renderer
         HudLayerRenderer.register();
 
         // Connection lifecycle
         // On JOIN: register moduiclient:confirm channel to trigger ViaBedrock handshake.
-        // Must be done during PLAY state because ViaBedrock's ModUIClientInterface.confirmPresence()
-        // responds with a PLAY-state CUSTOM_PAYLOAD packet.
-        // setConnected(true) and initial HudRequest are handled by CONFIRM receipt (see ModUIPayload.handle())
+        // Must be done during PLAY state so ViaBedrock can enable ModUI-only entity mapping.
+        // setConnected(true) means the shared transport is available; RequestHud confirms ModUI to the server.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             LOGGER.info("[ModUIClient] JOIN event fired, connected={}, registering moduiclient:confirm channel...",
                     UIManager.getInstance().isConnected());
@@ -53,8 +57,6 @@ public class ModUIClient implements ClientModInitializer {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             LOGGER.info("[ModUIClient] Disconnected");
-            UIManager.getInstance().setConnected(false);
-            EntityMappingStore.getInstance().clear();
         });
 
         // World change (initial join + dimension change + cross-server transfer)
