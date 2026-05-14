@@ -21,7 +21,7 @@ public class ModUIClient implements ClientModInitializer {
     public static final String MOD_ID = "moduiclient";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     private static final String MOD_EVENT_NAMESPACE = "ECNukkitClientMod";
-    private static final String MOD_EVENT_SYSTEM = "ECNukkitClientSystem";
+    private static final String MOD_EVENT_SERVER_SYSTEM = "ECNukkitServerSystem";
 
     @Override
     public void onInitializeClient() {
@@ -33,8 +33,11 @@ public class ModUIClient implements ClientModInitializer {
             EntityMappingStore.getInstance().clear();
         });
         NeteaseRpcEvents.MOD_EVENT_S2C.register(event -> {
-            if (MOD_EVENT_NAMESPACE.equals(event.namespace()) && MOD_EVENT_SYSTEM.equals(event.system())) {
+            if (MOD_EVENT_NAMESPACE.equals(event.namespace()) && MOD_EVENT_SERVER_SYSTEM.equals(event.system())) {
                 PyRpcCodec.handleS2C(event.rawPayload());
+            } else {
+                LOGGER.debug("[ModUIClient] Ignoring ModEventS2C namespace={}, system={}, event={}",
+                        event.namespace(), event.system(), event.eventName());
             }
         });
         NeteaseRpcEvents.ENTITY_MAPPING_S2C.register(data -> EntityMappingStore.getInstance().handlePayload(data));
