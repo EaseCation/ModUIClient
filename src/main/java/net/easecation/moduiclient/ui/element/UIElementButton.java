@@ -25,6 +25,7 @@ public class UIElementButton extends UIElement {
     // Nine-slice info per texture state (lazily loaded)
     private NineSliceInfo defaultNs, hoverNs, pressedNs;
     private boolean nsLoaded = false;
+    private long nsCacheEpoch = -1L;
 
     // Interaction state
     private boolean hovered = false;
@@ -62,11 +63,13 @@ public class UIElementButton extends UIElement {
     }
 
     private void ensureNsLoaded() {
-        if (!nsLoaded) {
+        long cacheEpoch = NineSliceInfo.getCacheEpoch();
+        if (!nsLoaded || nsCacheEpoch != cacheEpoch) {
             defaultNs = NineSliceInfo.forTexture(defaultTexture);
             hoverNs = NineSliceInfo.forTexture(hoverTexture);
             pressedNs = NineSliceInfo.forTexture(pressedTexture);
             nsLoaded = true;
+            nsCacheEpoch = cacheEpoch;
         }
     }
 
@@ -145,18 +148,21 @@ public class UIElementButton extends UIElement {
         this.defaultTexture = path;
         this.defaultTextureId = resolveTexture(path);
         this.nsLoaded = false;
+        this.nsCacheEpoch = -1L;
     }
 
     public void setHoverTexture(String path) {
         this.hoverTexture = path;
         this.hoverTextureId = resolveTexture(path);
         this.nsLoaded = false;
+        this.nsCacheEpoch = -1L;
     }
 
     public void setPressedTexture(String path) {
         this.pressedTexture = path;
         this.pressedTextureId = resolveTexture(path);
         this.nsLoaded = false;
+        this.nsCacheEpoch = -1L;
     }
 
     public void setButtonLabel(String label) { this.buttonLabel = label; }

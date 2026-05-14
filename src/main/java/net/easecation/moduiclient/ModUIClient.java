@@ -3,13 +3,19 @@ package net.easecation.moduiclient;
 import net.easecation.moduiclient.entity.EntityMappingStore;
 import net.easecation.moduiclient.protocol.PyRpcCodec;
 import net.easecation.moduiclient.render.HudLayerRenderer;
+import net.easecation.moduiclient.ui.NineSliceInfo;
 import net.easecation.moduiclient.ui.UIManager;
+import net.easecation.moduiclient.ui.element.UIElementImage;
 import net.easecation.neteasebridge.client.fabric.NeteaseRpcEvents;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.impl.networking.RegistrationPayload;
 import net.minecraft.network.packet.c2s.common.CustomPayloadC2SPacket;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +50,7 @@ public class ModUIClient implements ClientModInitializer {
 
         // Register HUD renderer
         HudLayerRenderer.register();
+        registerResourceReloadListener();
 
         // Connection lifecycle
         // On JOIN: register moduiclient:confirm channel to trigger ViaBedrock handshake.
@@ -80,6 +87,22 @@ public class ModUIClient implements ClientModInitializer {
         });
 
         LOGGER.info("[ModUIClient] Initialized.");
+    }
+
+    private void registerResourceReloadListener() {
+        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
+            @Override
+            public Identifier getFabricId() {
+                return Identifier.of(MOD_ID, "modui_cache_clear");
+            }
+
+            @Override
+            public void reload(ResourceManager manager) {
+                NineSliceInfo.clearCache();
+                UIElementImage.clearTextureDimensionCache();
+                LOGGER.debug("[ModUIClient] Cleared ModUI texture caches after client resource reload");
+            }
+        });
     }
 
 }

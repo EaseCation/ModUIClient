@@ -12,9 +12,11 @@ import net.minecraft.util.Identifier;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Bedrock nine-slice texture definition.
@@ -25,8 +27,9 @@ import java.util.Optional;
  */
 public class NineSliceInfo {
 
-    private static final Map<String, NineSliceInfo> CACHE = new HashMap<>();
-    private static final NineSliceInfo NONE = new NineSliceInfo(0, 0, 0, 0, 0, 0);
+    private static final Map<String, NineSliceInfo> CACHE = new ConcurrentHashMap<>();
+    private static final Set<String> MISSING_THIS_RELOAD = ConcurrentHashMap.newKeySet();
+    private static final AtomicLong CACHE_EPOCH = new AtomicLong();
 
     public final int left, top, right, bottom;
     public final int baseWidth, baseHeight;
@@ -66,12 +69,18 @@ public class NineSliceInfo {
 
         String cacheKey = normalizedPath;
         if (CACHE.containsKey(cacheKey)) {
-            NineSliceInfo cached = CACHE.get(cacheKey);
-            return cached == NONE ? null : cached;
+            return CACHE.get(cacheKey);
+        }
+        if (MISSING_THIS_RELOAD.contains(cacheKey)) {
+            return null;
         }
 
         NineSliceInfo info = loadFromResource(normalizedPath);
-        CACHE.put(cacheKey, info != null ? info : NONE);
+        if (info != null) {
+            CACHE.put(cacheKey, info);
+        } else {
+            MISSING_THIS_RELOAD.add(cacheKey);
+        }
         return info;
     }
 
@@ -82,12 +91,20 @@ public class NineSliceInfo {
         try {
             Optional<Resource> resourceOpt = MinecraftClient.getInstance()
                     .getResourceManager().getResource(id);
-            if (resourceOpt.isEmpty()) return null;
+            if (resourceOpt.isEmpty()) {
+                ModUIClient.LOGGER.debug("[NineSlice] Missing {}", jsonPath);
+                return null;
+            }
 
             try (InputStream is = resourceOpt.get().getInputStream();
                  InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
                 JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
-                return parseJson(json);
+                NineSliceInfo info = parseJson(json);
+                if (info != null) {
+                    ModUIClient.LOGGER.debug("[NineSlice] Loaded {}: insets=[{},{},{},{}], base={}x{}",
+                            jsonPath, info.left, info.top, info.right, info.bottom, info.baseWidth, info.baseHeight);
+                }
+                return info;
             }
         } catch (Exception e) {
             ModUIClient.LOGGER.debug("[NineSlice] Failed to load {}: {}", jsonPath, e.getMessage());
@@ -124,5 +141,11 @@ public class NineSliceInfo {
 
     public static void clearCache() {
         CACHE.clear();
+        MISSING_THIS_RELOAD.clear();
+        CACHE_EPOCH.incrementAndGet();
+    }
+
+    public static long getCacheEpoch() {
+        return CACHE_EPOCH.get();
     }
 }
