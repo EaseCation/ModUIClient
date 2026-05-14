@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Maintains a mapping of Bedrock runtime entity IDs to Java entity IDs.
- * Updated by the ViaBedrock proxy via ENTITY_MAPPING payloads.
+ * Updated by the ViaBedrock proxy via netease_bridge:entity_mapping payloads.
  * Thread-safe: payloads arrive on the network thread, queries happen on the render thread.
  */
 public class EntityMappingStore {
@@ -20,6 +20,7 @@ public class EntityMappingStore {
     private static final byte OP_SYNC = 2;
 
     private final ConcurrentHashMap<Long, Integer> bedrockToJavaId = new ConcurrentHashMap<>();
+    private volatile boolean authoritativeMapping = false;
 
     public static EntityMappingStore getInstance() {
         return INSTANCE;
@@ -30,15 +31,24 @@ public class EntityMappingStore {
      * @return Java entity ID, or -1 if no mapping exists
      */
     public int getJavaEntityId(long bedrockRuntimeId) {
+        if (!authoritativeMapping) {
+            return bedrockRuntimeId >= Integer.MIN_VALUE && bedrockRuntimeId <= Integer.MAX_VALUE
+                    ? (int) bedrockRuntimeId
+                    : -1;
+        }
         return bedrockToJavaId.getOrDefault(bedrockRuntimeId, -1);
     }
 
     /**
-     * Process an ENTITY_MAPPING payload from the proxy.
+     * Process an entity mapping payload from the proxy.
      */
     public void handlePayload(byte[] data) {
+        if (data == null || data.length == 0) {
+            return;
+        }
         PacketByteBuf buf = new PacketByteBuf(Unpooled.wrappedBuffer(data));
         try {
+            authoritativeMapping = true;
             byte operation = buf.readByte();
             switch (operation) {
                 case OP_ADD -> {
@@ -70,5 +80,6 @@ public class EntityMappingStore {
      */
     public void clear() {
         bedrockToJavaId.clear();
+        authoritativeMapping = false;
     }
 }

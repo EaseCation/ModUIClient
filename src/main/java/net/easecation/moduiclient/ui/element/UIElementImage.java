@@ -10,8 +10,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
 
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Image element supporting solid color fill, texture rendering, and nine-slice.
@@ -19,7 +19,7 @@ import java.util.Map;
 public class UIElementImage extends UIElement {
 
     // Cache: texture Identifier → [width, height] from PNG header
-    private static final Map<Identifier, int[]> TEXTURE_DIMS = new HashMap<>();
+    private static final Map<Identifier, int[]> TEXTURE_DIMS = new ConcurrentHashMap<>();
 
     private String texturePath;
     private Identifier textureId;
@@ -46,6 +46,7 @@ public class UIElementImage extends UIElement {
     // Nine-slice (lazily loaded from sidecar .json)
     private NineSliceInfo nineSlice;
     private boolean nineSliceLoaded = false;
+    private long nineSliceCacheEpoch = -1L;
 
     public UIElementImage(String name, String type) {
         super(name, type);
@@ -132,9 +133,11 @@ public class UIElementImage extends UIElement {
     }
 
     private NineSliceInfo getNineSlice() {
-        if (!nineSliceLoaded) {
+        long cacheEpoch = NineSliceInfo.getCacheEpoch();
+        if (!nineSliceLoaded || nineSliceCacheEpoch != cacheEpoch) {
             nineSlice = NineSliceInfo.forTexture(texturePath);
             nineSliceLoaded = true;
+            nineSliceCacheEpoch = cacheEpoch;
         }
         return nineSlice;
     }
@@ -184,7 +187,8 @@ public class UIElementImage extends UIElement {
                     int drawX = x + (w - drawW) / 2;
                     int drawY = y + (h - drawH) / 2;
                     context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
-                            drawX, drawY, 0, 0, drawW, drawH, drawW, drawH, color);
+                            drawX, drawY, 0, 0, drawW, drawH,
+                            dims[0], dims[1], dims[0], dims[1], color);
                 } else {
                     // Dimensions unknown — fallback to stretch
                     context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
@@ -230,8 +234,15 @@ public class UIElementImage extends UIElement {
                 }
             } else {
                 // Full texture
-                context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
-                        x, y, 0, 0, w, h, w, h, color);
+                int[] dims = queryTextureDimensions(textureId);
+                if (dims != null) {
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                            x, y, 0, 0, w, h,
+                            dims[0], dims[1], dims[0], dims[1], color);
+                } else {
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, textureId,
+                            x, y, 0, 0, w, h, w, h, color);
+                }
             }
         } else if (hasColor) {
             // Solid color fill
@@ -310,19 +321,9 @@ public class UIElementImage extends UIElement {
                                    int x, int y, int dstW, int dstH,
                                    int u, int v, int srcW, int srcH,
                                    int textureWidth, int textureHeight, int color) {
-        // drawTexture(pipeline, id, x, y, u, v, width, height, textureWidth, textureHeight, color)
-        // maps UV from (u, v) in a texture of size (textureWidth, textureHeight)
-        // We need to scale the UV region to map srcW×srcH source pixels to dstW×dstH screen pixels
-        // drawTexture draws a dstW×dstH rectangle and samples textureWidth×textureHeight pixels starting at (u,v)
-        // So we set textureWidth/Height to scale the UV mapping correctly
-        float scaleX = (float) dstW / srcW;
-        float scaleY = (float) dstH / srcH;
-        int scaledTexW = (int) (textureWidth * scaleX);
-        int scaledTexH = (int) (textureHeight * scaleY);
-        float scaledU = u * scaleX;
-        float scaledV = v * scaleY;
-        ctx.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, scaledU, scaledV,
-                dstW, dstH, scaledTexW, scaledTexH, color);
+        // Keep the sampled source region fixed while stretching only the destination quad.
+        ctx.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v,
+                dstW, dstH, srcW, srcH, textureWidth, textureHeight, color);
     }
 
     private static Identifier resolveTexture(String bedrockPath) {
@@ -346,6 +347,7 @@ public class UIElementImage extends UIElement {
         this.textureId = resolveTexture(path);
         this.textureExplicitlyEmpty = (path != null && path.trim().isEmpty());
         this.nineSliceLoaded = false; // reset for lazy reload
+        this.nineSliceCacheEpoch = -1L;
         this.nineSlice = null;
     }
 
@@ -357,6 +359,7 @@ public class UIElementImage extends UIElement {
         this.texturePath = null;
         this.textureExplicitlyEmpty = false;
         this.nineSliceLoaded = false;
+        this.nineSliceCacheEpoch = -1L;
         this.nineSlice = null;
 
         TextureUrlManager.getInstance().requestTexture(url, cacheKey, id -> {

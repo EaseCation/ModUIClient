@@ -8,6 +8,7 @@ build/
 *.ipr
 *.iws
 out/
+bin/
 
 # Fabric
 run/
